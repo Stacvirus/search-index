@@ -8,6 +8,10 @@ var stopWords = map[string]struct{}{
 	"to": {}, "of": {}, "for": {}, "by": {}, "that": {},
 	"this": {}, "it": {}, "as": {}, "are": {}, "was": {},
 	"be": {}, "from": {}, "or": {}, "but": {}, "not": {},
+	"over": {}, "under": {}, "between": {}, "into": {}, "out": {},
+	"can": {}, "its": {}, "have": {}, "has": {},
+	"had": {}, "do": {}, "did": {}, "will": {}, "would": {},
+	"could": {}, "should": {}, "may": {}, "might": {},
 }
 
 // checks if a given word is a stop word.
