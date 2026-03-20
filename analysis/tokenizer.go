@@ -18,7 +18,7 @@ func Tokenize(text string) []Token {
 	var result []Token
 	for _, token := range tokens {
 		if token != "" {
-			result = append(result, Token{token, position})
+			result = append(result, Token{Word: token, Position: position})
 			position++
 		}
 	}
