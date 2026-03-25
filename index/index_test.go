@@ -5,7 +5,7 @@ import (
 )
 
 func TestAddDocument_FileAccess(t *testing.T) {
-	idx := New()
+	idx := NewIndex()
 
 	t.Run("file does not exist", func(t *testing.T) {
 		err := idx.AddDocument("non-existent-file.txt")
@@ -49,7 +49,7 @@ func TestAddDocument_FileAccess(t *testing.T) {
 
 func TestAddDocument_Postings(t *testing.T) {
 	t.Run("single term single document", func(t *testing.T) {
-		idx := New()
+		idx := NewIndex()
 		path := makeTempFile(t, "golang")
 
 		_ = idx.AddDocument(path)
@@ -67,7 +67,7 @@ func TestAddDocument_Postings(t *testing.T) {
 	})
 
 	t.Run("same term multiple times", func(t *testing.T) {
-		idx := New()
+		idx := NewIndex()
 		path := makeTempFile(t, "golang is golang")
 
 		_ = idx.AddDocument(path)
@@ -86,7 +86,7 @@ func TestAddDocument_Postings(t *testing.T) {
 	})
 
 	t.Run("multiple distinct terms", func(t *testing.T) {
-		idx := New()
+		idx := NewIndex()
 		path := makeTempFile(t, "go fast")
 
 		_ = idx.AddDocument(path)
@@ -97,7 +97,7 @@ func TestAddDocument_Postings(t *testing.T) {
 	})
 
 	t.Run("terms across multiple lines", func(t *testing.T) {
-		idx := New()
+		idx := NewIndex()
 		path := makeTempFile(t, "golang\nsearch")
 
 		_ = idx.AddDocument(path)
@@ -113,7 +113,7 @@ func TestAddDocument_Postings(t *testing.T) {
 }
 
 func TestAddDocument_MultipleDocs(t *testing.T) {
-	idx := New()
+	idx := NewIndex()
 
 	path1 := makeTempFile(t, "golang")
 	path2 := makeTempFile(t, "golang")
@@ -133,7 +133,7 @@ func TestAddDocument_MultipleDocs(t *testing.T) {
 }
 
 func TestAddDocument_DocStore(t *testing.T) {
-	idx := New()
+	idx := NewIndex()
 
 	path := makeTempFile(t, "golang is fast")
 	_ = idx.AddDocument(path)

@@ -19,7 +19,7 @@ type Document struct {
 	Length   int
 }
 
-func New() *Index {
+func NewIndex() *Index {
 	return &Index{
 		postings:  make(map[string]PostingList),
 		docs:      make(map[int]Document),
@@ -54,8 +54,8 @@ func (idx *Index) AddDocument(filePath string) error {
 	}
 
 	// Add the document to the index and increment the document ID
-	idx.docs[idx.nextDocID] = Document{
-		ID:       idx.nextDocID,
+	idx.docs[docID] = Document{
+		ID:       docID,
 		FilePath: filePath,
 		Length:   totalTokens,
 	}
