@@ -28,6 +28,9 @@ func New() *Index {
 }
 
 func (idx *Index) AddDocument(filePath string) error {
+	totalTokens := 0
+	docID := idx.nextDocID
+
 	// Get access to the file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -37,14 +40,13 @@ func (idx *Index) AddDocument(filePath string) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	totalTokens := 0
 
 	// Read the file line by line and analyze the content
 	for scanner.Scan() {
 		line := scanner.Text()
 		tokens := analysis.Analyze(line) // Get the tokens from the line
 		totalTokens += len(tokens)
-		idx.handleTokens(tokens)
+		idx.handleTokens(tokens, docID)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -63,14 +65,14 @@ func (idx *Index) AddDocument(filePath string) error {
 }
 
 // Update the index with the tokens from the document
-func (idx *Index) handleTokens(tokens []analysis.Token) {
+func (idx *Index) handleTokens(tokens []analysis.Token, docID int) {
 	for _, token := range tokens {
 		// Update the posting list for the token
 		postingList := idx.postings[token.Word] // If the token doesn't exist, this will return an empty list
 
 		// Create a new posting for the document
 		posting := Posting{
-			DocID:     idx.nextDocID,
+			DocID:     docID,
 			Frequency: 1,
 			Positions: []int{token.Position},
 		}
@@ -78,7 +80,7 @@ func (idx *Index) handleTokens(tokens []analysis.Token) {
 		// Check if the document already exists in the posting list
 		found := false
 		for i, p := range postingList {
-			if p.DocID == idx.nextDocID {
+			if p.DocID == docID {
 				postingList[i].Frequency++
 				postingList[i].Positions = append(postingList[i].Positions, token.Position)
 				found = true
