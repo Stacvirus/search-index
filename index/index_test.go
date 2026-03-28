@@ -152,3 +152,66 @@ func TestAddDocument_DocStore(t *testing.T) {
 		t.Errorf("expected nextDocID 2, got %d", idx.nextDocID)
 	}
 }
+
+func TestSearch(t *testing.T) {
+
+	t.Run("single term query", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "golang is fast")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("golang")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+
+		if results[0].ID != 1 {
+			t.Errorf("expected docID 1, got %d", results[0].ID)
+		}
+	})
+
+	t.Run("two term query both exist", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "golang is fast")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("golang fast")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+
+		if results[0].ID != 1 {
+			t.Errorf("expected docID 1, got %d", results[0].ID)
+		}
+	})
+
+	t.Run("two term query one missing", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "golang is fast")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("golang python")
+
+		if len(results) != 0 {
+			t.Errorf("expected no results, got %v", results)
+		}
+	})
+
+	t.Run("empty query", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "golang is fast")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("")
+
+		if len(results) != 0 {
+			t.Errorf("expected empty result, got %v", results)
+		}
+	})
+}
