@@ -84,16 +84,11 @@ func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 		}
 
 		// Check if the document already exists in the posting list
-		found := false
-		for i, p := range postingList {
-			if p.DocID == docID {
-				postingList[i].Frequency++
-				postingList[i].Positions = append(postingList[i].Positions, token.Position)
-				found = true
-				break
-			}
-		}
-		if !found {
+		if len(postingList) > 0 && postingList[len(postingList)-1].DocID == docID {
+			last := len(postingList) - 1
+			postingList[last].Frequency++
+			postingList[last].Positions = append(postingList[last].Positions, token.Position)
+		} else {
 			postingList = append(postingList, posting)
 		}
 		idx.postings[token.Word] = postingList
