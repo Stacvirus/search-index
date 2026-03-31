@@ -20,6 +20,11 @@ type Document struct {
 	Length   int
 }
 
+type scoredDocs struct {
+	doc   Document
+	score float64
+}
+
 func NewIndex() *Index {
 	return &Index{
 		postings:  make(map[string]PostingList),
@@ -47,7 +52,7 @@ func (idx *Index) AddDocument(filePath string) error {
 		line := scanner.Text()
 		tokens := analysis.Analyze(line) // Get the tokens from the line
 		totalTokens += len(tokens)
-		idx.handleTokens(tokens, docID)
+		idx.buildIndex(tokens, docID)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -66,7 +71,7 @@ func (idx *Index) AddDocument(filePath string) error {
 }
 
 // Update the index with the tokens from the document
-func (idx *Index) handleTokens(tokens []analysis.Token, docID int) {
+func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 	for _, token := range tokens {
 		// Update the posting list for the token
 		postingList := idx.postings[token.Word] // If the token doesn't exist, this will return an empty list
@@ -100,12 +105,11 @@ func (idx *Index) Search(query string) []Document {
 	tokens := analysis.Analyze(query)
 	lists := idx.getPostings(tokens)
 	result := idx.intersectPostings(lists)
+	scoredList := idx.rankDocuments(result, tokens)
 
 	var documents []Document
-	for _, docID := range result {
-		if doc, ok := idx.docs[docID]; ok {
-			documents = append(documents, doc)
-		}
+	for _, scored := range scoredList {
+		documents = append(documents, scored.doc)
 	}
 	return documents
 }
@@ -127,7 +131,7 @@ func (idx *Index) getPostings(tokens []analysis.Token) []PostingList {
 	return result
 }
 
-func (idx *Index) intersectPostings(lists []PostingList) []int {
+func (idx *Index) intersectPostings(lists []PostingList) PostingList {
 	if len(lists) == 0 {
 		return nil
 	}
@@ -144,11 +148,7 @@ func (idx *Index) intersectPostings(lists []PostingList) []int {
 		}
 	}
 
-	var docIDs []int
-	for _, posting := range result {
-		docIDs = append(docIDs, posting.DocID)
-	}
-	return docIDs
+	return result
 }
 
 func intersectTwo(list1, list2 PostingList) PostingList {
@@ -166,4 +166,40 @@ func intersectTwo(list1, list2 PostingList) PostingList {
 		}
 	}
 	return result
+}
+
+func (idx *Index) rankDocuments(postings PostingList, tokens []analysis.Token) []scoredDocs {
+	var scoredList []scoredDocs
+
+	for _, posting := range postings {
+		doc := idx.docs[posting.DocID]
+		totalScore := 0.0
+		for _, token := range tokens {
+			list := idx.postings[token.Word]
+			totalScore += Score(searchPosting(list, posting.DocID), doc, len(list), idx.nextDocID-1)
+		}
+		scoredList = append(scoredList, scoredDocs{doc, totalScore})
+	}
+
+	// Sort the scored documents by score in descending order
+	sort.Slice(scoredList, func(i, j int) bool {
+		return scoredList[i].score > scoredList[j].score
+	})
+
+	return scoredList
+}
+
+func searchPosting(list PostingList, docID int) Posting {
+	last, first := len(list), 0
+	for first < last {
+		mid := (first + last) / 2
+		if list[mid].DocID == docID {
+			return list[mid]
+		} else if list[mid].DocID < docID {
+			first = mid + 1
+		} else {
+			last = mid
+		}
+	}
+	return Posting{} // Branch suppose to never be reached if the document is guaranteed to be in the list
 }
