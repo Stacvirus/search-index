@@ -1,6 +1,7 @@
 package index
 
 import (
+	"math"
 	"testing"
 )
 
@@ -214,4 +215,68 @@ func TestSearch(t *testing.T) {
 			t.Errorf("expected empty result, got %v", results)
 		}
 	})
+}
+
+func TestTermFrequency(t *testing.T) {
+	tests := []struct {
+		name    string
+		posting Posting
+		doc     Document
+		want    float64
+	}{
+		{
+			name:    "basic tf",
+			posting: Posting{Frequency: 2},
+			doc:     Document{Length: 4},
+			want:    0.5,
+		},
+		{
+			name:    "higher frequency",
+			posting: Posting{Frequency: 5},
+			doc:     Document{Length: 10},
+			want:    0.5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := termFrequency(tt.posting, tt.doc)
+
+			if got != tt.want {
+				t.Errorf("termFrequency() = %f, want %f", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInverseDocumentFrequency(t *testing.T) {
+	tests := []struct {
+		name      string
+		listLen   int
+		totalDocs int
+		want      float64
+	}{
+		{
+			name:      "basic idf",
+			listLen:   2,
+			totalDocs: 10,
+			want:      math.Log(5),
+		},
+		{
+			name:      "term in all docs",
+			listLen:   10,
+			totalDocs: 10,
+			want:      0.0, // log(1)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := inverseDocumentFrequency(tt.listLen, tt.totalDocs)
+
+			if math.Abs(got-tt.want) > 1e-9 {
+				t.Errorf("idf() = %f, want %f", got, tt.want)
+			}
+		})
+	}
 }
