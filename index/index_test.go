@@ -23,13 +23,13 @@ func TestAddDocument_FileAccess(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		doc := idx.docs[1]
+		doc := idx.Docs[1]
 		if doc.Length != 0 {
 			t.Errorf("expected length 0, got %d", doc.Length)
 		}
 
-		if len(idx.postings) != 0 {
-			t.Errorf("expected no postings, got %v", idx.postings)
+		if len(idx.Postings) != 0 {
+			t.Errorf("expected no postings, got %v", idx.Postings)
 		}
 	})
 
@@ -41,7 +41,7 @@ func TestAddDocument_FileAccess(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		doc := idx.docs[2]
+		doc := idx.Docs[2]
 		if doc.Length != 0 {
 			t.Errorf("expected length 0, got %d", doc.Length)
 		}
@@ -55,7 +55,7 @@ func TestAddDocument_Postings(t *testing.T) {
 
 		_ = idx.AddDocument(path)
 
-		postings := idx.postings["golang"]
+		postings := idx.Postings["golang"]
 
 		if len(postings) != 1 {
 			t.Fatalf("expected 1 posting, got %d", len(postings))
@@ -73,7 +73,7 @@ func TestAddDocument_Postings(t *testing.T) {
 
 		_ = idx.AddDocument(path)
 
-		postings := idx.postings["golang"]
+		postings := idx.Postings["golang"]
 		p := postings[0]
 
 		if p.Frequency != 2 {
@@ -92,8 +92,8 @@ func TestAddDocument_Postings(t *testing.T) {
 
 		_ = idx.AddDocument(path)
 
-		if len(idx.postings) != 2 {
-			t.Errorf("expected 2 terms, got %d", len(idx.postings))
+		if len(idx.Postings) != 2 {
+			t.Errorf("expected 2 terms, got %d", len(idx.Postings))
 		}
 	})
 
@@ -103,11 +103,11 @@ func TestAddDocument_Postings(t *testing.T) {
 
 		_ = idx.AddDocument(path)
 
-		if _, ok := idx.postings["golang"]; !ok {
+		if _, ok := idx.Postings["golang"]; !ok {
 			t.Errorf("missing term golang")
 		}
 
-		if _, ok := idx.postings["search"]; !ok {
+		if _, ok := idx.Postings["search"]; !ok {
 			t.Errorf("missing term search")
 		}
 	})
@@ -122,7 +122,7 @@ func TestAddDocument_MultipleDocs(t *testing.T) {
 	_ = idx.AddDocument(path1)
 	_ = idx.AddDocument(path2)
 
-	postings := idx.postings["golang"]
+	postings := idx.Postings["golang"]
 
 	if len(postings) != 2 {
 		t.Fatalf("expected 2 postings, got %d", len(postings))
@@ -139,7 +139,7 @@ func TestAddDocument_DocStore(t *testing.T) {
 	path := makeTempFile(t, "golang is fast")
 	_ = idx.AddDocument(path)
 
-	doc := idx.docs[1]
+	doc := idx.Docs[1]
 
 	if doc.FilePath != path {
 		t.Errorf("expected filepath %s, got %s", path, doc.FilePath)
@@ -149,8 +149,8 @@ func TestAddDocument_DocStore(t *testing.T) {
 		t.Errorf("expected length 2, got %d", doc.Length)
 	}
 
-	if idx.nextDocID != 2 {
-		t.Errorf("expected nextDocID 2, got %d", idx.nextDocID)
+	if idx.NextDocID != 2 {
+		t.Errorf("expected nextDocID 2, got %d", idx.NextDocID)
 	}
 }
 

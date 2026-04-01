@@ -9,9 +9,9 @@ import (
 )
 
 type Index struct {
-	postings  map[string]PostingList
-	docs      map[int]Document
-	nextDocID int
+	Postings  map[string]PostingList
+	Docs      map[int]Document
+	NextDocID int
 }
 
 type Document struct {
@@ -27,15 +27,15 @@ type scoredDocs struct {
 
 func NewIndex() *Index {
 	return &Index{
-		postings:  make(map[string]PostingList),
-		docs:      make(map[int]Document),
-		nextDocID: 1,
+		Postings:  make(map[string]PostingList),
+		Docs:      make(map[int]Document),
+		NextDocID: 1,
 	}
 }
 
 func (idx *Index) AddDocument(filePath string) error {
 	totalTokens := 0
-	docID := idx.nextDocID
+	docID := idx.NextDocID
 
 	// Get access to the file
 	file, err := os.Open(filePath)
@@ -60,12 +60,12 @@ func (idx *Index) AddDocument(filePath string) error {
 	}
 
 	// Add the document to the index and increment the document ID
-	idx.docs[docID] = Document{
+	idx.Docs[docID] = Document{
 		ID:       docID,
 		FilePath: filePath,
 		Length:   totalTokens,
 	}
-	idx.nextDocID++
+	idx.NextDocID++
 
 	return nil
 }
@@ -74,7 +74,7 @@ func (idx *Index) AddDocument(filePath string) error {
 func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 	for _, token := range tokens {
 		// Update the posting list for the token
-		postingList := idx.postings[token.Word] // If the token doesn't exist, this will return an empty list
+		postingList := idx.Postings[token.Word] // If the token doesn't exist, this will return an empty list
 
 		// Create a new posting for the document
 		posting := Posting{
@@ -92,7 +92,7 @@ func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 		} else {
 			postingList = append(postingList, posting)
 		}
-		idx.postings[token.Word] = postingList
+		idx.Postings[token.Word] = postingList
 	}
 }
 
@@ -118,7 +118,7 @@ func (idx *Index) getPostings(tokens []analysis.Token) []PostingList {
 	var result []PostingList
 
 	for _, token := range tokens {
-		list := idx.postings[token.Word]
+		list := idx.Postings[token.Word]
 		if len(list) == 0 {
 			return nil // If any token has no postings, the intersection will be empty
 		}
@@ -168,11 +168,11 @@ func (idx *Index) rankDocuments(postings PostingList, tokens []analysis.Token) [
 	var scoredList []scoredDocs
 
 	for _, posting := range postings {
-		doc := idx.docs[posting.DocID]
+		doc := idx.Docs[posting.DocID]
 		totalScore := 0.0
 		for _, token := range tokens {
-			list := idx.postings[token.Word]
-			totalScore += Score(searchPosting(list, posting.DocID), doc, len(list), idx.nextDocID-1)
+			list := idx.Postings[token.Word]
+			totalScore += Score(searchPosting(list, posting.DocID), doc, len(list), idx.NextDocID-1)
 		}
 		scoredList = append(scoredList, scoredDocs{doc, totalScore})
 	}
