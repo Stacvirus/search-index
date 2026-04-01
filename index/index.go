@@ -84,8 +84,9 @@ func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 		}
 
 		// Check if the document already exists in the posting list
-		if len(postingList) > 0 && postingList[len(postingList)-1].DocID == docID {
-			last := len(postingList) - 1
+		postingListLength := len(postingList)
+		if postingListLength > 0 && postingList[postingListLength-1].DocID == docID {
+			last := postingListLength - 1
 			postingList[last].Frequency++
 			postingList[last].Positions = append(postingList[last].Positions, token.Position)
 		} else {
