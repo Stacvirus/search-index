@@ -100,7 +100,7 @@ func (idx *Index) Search(query string) []Document {
 	// Analyze the query to get the tokens
 	tokens := analysis.Analyze(query)
 	lists := idx.getPostings(tokens)
-	result := idx.intersectPostings(lists)
+	result := idx.unionPostings(lists)
 	scoredList := idx.rankDocuments(result, tokens)
 
 	var documents []Document
@@ -120,45 +120,28 @@ func (idx *Index) getPostings(tokens []analysis.Token) []PostingList {
 	for _, token := range tokens {
 		list := idx.Postings[token.Word]
 		if len(list) == 0 {
-			return nil // If any token has no postings, the intersection will be empty
+			continue // We can skip tokens that don't exist in the index, as they won't contribute to the search results
 		}
 		result = append(result, list)
 	}
 	return result
 }
 
-func (idx *Index) intersectPostings(lists []PostingList) PostingList {
+// Union posting lists merges all the postings from the lists,
+// while intersection only keeps the postings that are present in all lists.
+// Union is used for OR queries, while intersection is used for AND queries.
+func (idx *Index) unionPostings(lists []PostingList) PostingList {
 	if len(lists) == 0 {
 		return nil
 	}
-	// sort the posting lists in ascending order to optimize intersection
-	sort.Slice(lists, func(i, j int) bool {
-		return len(lists[i]) < len(lists[j])
-	})
-
-	result := lists[0]
-	for _, list := range lists[1:] {
-		result = intersectTwo(result, list)
-		if len(result) == 0 {
-			return nil // early exit
-		}
-	}
-
-	return result
-}
-
-func intersectTwo(list1, list2 PostingList) PostingList {
+	seen := make(map[int]struct{})
 	var result PostingList
-	p1, p2 := 0, 0
-	for p1 < len(list1) && p2 < len(list2) {
-		if list1[p1].DocID == list2[p2].DocID {
-			result = append(result, list1[p1])
-			p1++
-			p2++
-		} else if list1[p1].DocID < list2[p2].DocID {
-			p1++
-		} else {
-			p2++
+	for _, list := range lists {
+		for _, posting := range list {
+			if _, exists := seen[posting.DocID]; !exists {
+				result = append(result, posting)
+				seen[posting.DocID] = struct{}{}
+			}
 		}
 	}
 	return result
