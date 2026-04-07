@@ -72,7 +72,7 @@ func TestEndToEndSearch(t *testing.T) {
 		}
 	})
 
-	t.Run("multi-term query, only one doc matches all terms", func(t *testing.T) {
+	t.Run("multi-term query, return all docs having atleast one term", func(t *testing.T) {
 		idx := NewIndex()
 
 		p1 := makeTempFile(t, "golang is fast")
@@ -83,8 +83,8 @@ func TestEndToEndSearch(t *testing.T) {
 
 		results := idx.Search("golang fast")
 
-		if len(results) != 1 {
-			t.Fatalf("expected 1 result, got %d", len(results))
+		if len(results) != 2 {
+			t.Fatalf("expected 2 results, got %d", len(results))
 		}
 
 		if results[0].ID != 1 {
@@ -92,7 +92,7 @@ func TestEndToEndSearch(t *testing.T) {
 		}
 	})
 
-	t.Run("multi-term query, no document matches all terms", func(t *testing.T) {
+	t.Run("multi-term query, at least one term present in doc", func(t *testing.T) {
 		idx := NewIndex()
 
 		p1 := makeTempFile(t, "golang fast")
@@ -103,8 +103,8 @@ func TestEndToEndSearch(t *testing.T) {
 
 		results := idx.Search("golang slow")
 
-		if len(results) != 0 {
-			t.Fatalf("expected 0 results, got %d", len(results))
+		if len(results) != 2 {
+			t.Fatalf("expected 2 results, got %d", len(results))
 		}
 	})
 

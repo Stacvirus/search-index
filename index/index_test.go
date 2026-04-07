@@ -198,8 +198,8 @@ func TestSearch(t *testing.T) {
 
 		results := idx.Search("golang python")
 
-		if len(results) != 0 {
-			t.Errorf("expected no results, got %v", results)
+		if len(results) != 1 {
+			t.Errorf("expected 1 result, got %v", results)
 		}
 	})
 
