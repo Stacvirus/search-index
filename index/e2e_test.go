@@ -120,4 +120,105 @@ func TestEndToEndSearch(t *testing.T) {
 			t.Fatalf("expected 0 results, got %d", len(results))
 		}
 	})
+
+	t.Run("index directory and search term", func(t *testing.T) {
+		idx := NewIndex()
+
+		root := makeTempDir(t, map[string]string{
+			"a.txt": "golang is fast",
+			"b.txt": "python is slow",
+		})
+
+		err := idx.AddDocuments(root, []string{".txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		results := idx.Search("golang")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+	})
+
+	t.Run("ignore non matching extensions", func(t *testing.T) {
+		idx := NewIndex()
+
+		root := makeTempDir(t, map[string]string{
+			"a.txt": "golang",
+			"b.md":  "python",
+		})
+
+		err := idx.AddDocuments(root, []string{".txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		results := idx.Search("python")
+
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results, got %d", len(results))
+		}
+	})
+
+	t.Run("nested directories indexing", func(t *testing.T) {
+		idx := NewIndex()
+
+		root := makeTempDir(t, map[string]string{
+			"dir1/a.txt": "golang",
+			"dir2/b.txt": "fast",
+		})
+
+		err := idx.AddDocuments(root, []string{".txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		results := idx.Search("fast")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+	})
+
+	t.Run("ranking works across directory documents", func(t *testing.T) {
+		idx := NewIndex()
+
+		root := makeTempDir(t, map[string]string{
+			"a.txt": "golang golang fast", // higher TF
+			"b.txt": "golang fast",
+		})
+
+		err := idx.AddDocuments(root, []string{".txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		results := idx.Search("golang")
+
+		if len(results) != 2 {
+			t.Fatalf("expected 2 results, got %d", len(results))
+		}
+
+		if results[0].ID != 1 {
+			t.Errorf("expected higher TF doc first, got %d", results[0].ID)
+		}
+	})
+
+	t.Run("empty directory", func(t *testing.T) {
+		idx := NewIndex()
+
+		root := makeTempDir(t, map[string]string{})
+
+		err := idx.AddDocuments(root, []string{".txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		results := idx.Search("golang")
+
+		if len(results) != 0 {
+			t.Fatalf("expected 0 results, got %d", len(results))
+		}
+	})
 }

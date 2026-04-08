@@ -280,3 +280,102 @@ func TestInverseDocumentFrequency(t *testing.T) {
 		})
 	}
 }
+
+func TestAddDocuments(t *testing.T) {
+	tests := []struct {
+		name         string
+		files        map[string]string
+		extensions   []string
+		wantDocs     int
+		wantPostings bool
+		expectError  bool
+	}{
+		{
+			name: "single valid file",
+			files: map[string]string{
+				"doc1.txt": "golang is fast",
+			},
+			extensions:   []string{".txt"},
+			wantDocs:     1,
+			wantPostings: true,
+		},
+		{
+			name: "ignore non-matching extensions",
+			files: map[string]string{
+				"doc1.txt": "golang",
+				"doc2.md":  "python",
+			},
+			extensions:   []string{".txt"},
+			wantDocs:     1,
+			wantPostings: true,
+		},
+		{
+			name: "multiple valid files",
+			files: map[string]string{
+				"doc1.txt": "golang",
+				"doc2.txt": "python",
+			},
+			extensions:   []string{".txt"},
+			wantDocs:     2,
+			wantPostings: true,
+		},
+		{
+			name: "nested directories",
+			files: map[string]string{
+				"a/doc1.txt": "golang",
+				"b/doc2.txt": "python",
+			},
+			extensions:   []string{".txt"},
+			wantDocs:     2,
+			wantPostings: true,
+		},
+		{
+			name: "no matching files",
+			files: map[string]string{
+				"doc1.md": "golang",
+			},
+			extensions:   []string{".txt"},
+			wantDocs:     0,
+			wantPostings: false,
+		},
+		{
+			name:         "empty directory",
+			files:        map[string]string{},
+			extensions:   []string{".txt"},
+			wantDocs:     0,
+			wantPostings: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx := NewIndex()
+			root := makeTempDir(t, tt.files)
+
+			err := idx.AddDocuments(root, tt.extensions)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(idx.Docs) != tt.wantDocs {
+				t.Errorf("expected %d docs, got %d", tt.wantDocs, len(idx.Docs))
+			}
+
+			if tt.wantPostings && len(idx.Postings) == 0 {
+				t.Errorf("expected postings to be populated")
+			}
+
+			if !tt.wantPostings && len(idx.Postings) != 0 {
+				t.Errorf("expected no postings, got %v", idx.Postings)
+			}
+		})
+	}
+}
