@@ -20,7 +20,7 @@ func main() {
 
 	switch command {
 	case "add":
-		if err := addDocument(arg); err != nil {
+		if err := addPath(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
@@ -36,23 +36,32 @@ func main() {
 
 }
 
-func addDocument(filePath string) error {
+func addPath(path string) error {
 	idx, err := index.Load(indexPath)
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
 	}
 
-	if err := idx.AddDocument(filePath); err != nil {
-		return fmt.Errorf("indexing %s: %w", filePath, err)
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("reading path: %w", err)
 	}
 
-	if err := idx.Save(indexPath); err != nil {
-		return fmt.Errorf("saving index: %w", err)
+	if info.IsDir() {
+		extensions := []string{".txt", ".md"}
+		if err := idx.AddDocuments(path, extensions); err != nil {
+			return fmt.Errorf("indexing directory %s: %w", path, err)
+		}
+		fmt.Printf("indexed directory: %s\n", path)
+	} else {
+		if err := idx.AddDocument(path); err != nil {
+			return fmt.Errorf("indexing %s: %w", path, err)
+		}
+		doc := idx.Docs[idx.NextDocID-1]
+		fmt.Printf("indexed: %s (%d tokens)\n", path, doc.Length)
 	}
 
-	doc := idx.Docs[idx.NextDocID-1]
-	fmt.Printf("Indexed: %s (%d tokens)\n", filePath, doc.Length)
-	return nil
+	return idx.Save(indexPath)
 }
 
 func search(query string) error {
@@ -76,6 +85,7 @@ func search(query string) error {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println(" go run main.go add <filepath>")
+	fmt.Println(" go run main.go add <filepath.extension>")
+	fmt.Println(" go run main.go add <directory>")
 	fmt.Println(" go run main.go search <query>")
 }

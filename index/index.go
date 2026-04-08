@@ -2,7 +2,9 @@ package index
 
 import (
 	"bufio"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/Stacvirus/search-index/analysis"
@@ -31,6 +33,34 @@ func NewIndex() *Index {
 		Docs:      make(map[int]Document),
 		NextDocID: 1,
 	}
+}
+
+func (idx *Index) AddDocuments(root string, extensions []string) error {
+	extSet := make(map[string]bool)
+	for _, ext := range extensions {
+		extSet[ext] = true
+	}
+
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil // Skip directories, we only want to index files
+		}
+		if !extSet[filepath.Ext(path)] {
+			return nil // Skip files that don't have the specified extensions
+		}
+
+		// store path relative to the root directory in the index, so that we can move
+		// the index to a different location without breaking the file paths
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		return idx.AddDocument(filepath.Join(root, relPath))
+	})
 }
 
 func (idx *Index) AddDocument(filePath string) error {
