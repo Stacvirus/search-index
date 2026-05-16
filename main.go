@@ -77,8 +77,12 @@ func search(query string) error {
 	}
 
 	fmt.Printf("Results for %q:\n", query)
-	for i, doc := range results {
-		fmt.Printf(" %d. %s\n", i+1, doc.FilePath)
+	for i, result := range results {
+		fmt.Printf(" %d. %s (score: %.4f)\n", i+1, result.Doc.FilePath, result.Score)
+
+		for _, snippet := range result.Snippets {
+			fmt.Printf("    ...%s...\n", snippet.Text)
+		}
 	}
 	return nil
 }

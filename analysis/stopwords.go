@@ -20,7 +20,9 @@ func IsStopWord(word string) bool {
 	return exists
 }
 
-// removes stop words from a slice of tokens.
+// FilterStopWords removes stop words without changing token positions.
+// Positions are offsets in the original token stream, so search snippets can
+// later use them to find the matching line in the source document.
 func FilterStopWords(tokens []Token) []Token {
 	var filtered []Token
 	for _, token := range tokens {

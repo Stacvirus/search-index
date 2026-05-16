@@ -10,12 +10,14 @@ import (
 	"github.com/Stacvirus/search-index/analysis"
 )
 
+// Index stores documents and their inverted posting lists.
 type Index struct {
 	Postings  map[string]PostingList
 	Docs      map[int]Document
 	NextDocID int
 }
 
+// Document is the metadata stored for one indexed file.
 type Document struct {
 	ID       int
 	FilePath string
@@ -27,6 +29,27 @@ type scoredDocs struct {
 	score float64
 }
 
+// Match is a query term occurrence inside Snippet.Text.
+type Match struct {
+	Start int
+	End   int
+	Term  string
+}
+
+// Snippet is the display text plus exact ranges the UI can highlight.
+type Snippet struct {
+	Text    string
+	Matches []Match
+}
+
+// Result is one search hit plus the snippets that matched the query.
+type Result struct {
+	Doc      Document
+	Snippets []Snippet
+	Score    float64
+}
+
+// NewIndex creates an empty in-memory search index.
 func NewIndex() *Index {
 	return &Index{
 		Postings:  make(map[string]PostingList),
@@ -35,6 +58,8 @@ func NewIndex() *Index {
 	}
 }
 
+// AddDocuments adds all documents in the specified directory to the index,
+// filtering by the specified extensions.
 func (idx *Index) AddDocuments(root string, extensions []string) error {
 	extSet := make(map[string]bool)
 	for _, ext := range extensions {
@@ -63,8 +88,12 @@ func (idx *Index) AddDocuments(root string, extensions []string) error {
 	})
 }
 
+// AddDocument reads one file and adds its analyzed tokens to the index.
+// Posting positions are document-wide token offsets, which lets snippet
+// extraction reopen the file and walk back to the matched line later.
 func (idx *Index) AddDocument(filePath string) error {
 	totalTokens := 0
+	positionOffset := 0
 	docID := idx.NextDocID
 
 	// Get access to the file
@@ -81,8 +110,12 @@ func (idx *Index) AddDocument(filePath string) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 		tokens := analysis.Analyze(line) // Get the tokens from the line
+		for i := range tokens {
+			tokens[i].Position += positionOffset
+		}
 		totalTokens += len(tokens)
 		idx.buildIndex(tokens, docID)
+		positionOffset += len(analysis.Tokenize(line))
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -126,18 +159,26 @@ func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 	}
 }
 
-func (idx *Index) Search(query string) []Document {
+// Search returns ranked documents for query, including matching snippets.
+// The index already stores posting positions, so no index schema changes are
+// needed to attach snippets to each result.
+func (idx *Index) Search(query string) []Result {
 	// Analyze the query to get the tokens
 	tokens := analysis.Analyze(query)
 	lists := idx.getPostings(tokens)
 	result := idx.unionPostings(lists)
 	scoredList := idx.rankDocuments(result, tokens)
 
-	var documents []Document
+	var results []Result
 	for _, scored := range scoredList {
-		documents = append(documents, scored.doc)
+		result := Result{
+			Doc:      scored.doc,
+			Snippets: nil,
+			Score:    scored.score,
+		}
+		results = append(results, idx.ExtractSnippets(result, query))
 	}
-	return documents
+	return results
 }
 
 func (idx *Index) getPostings(tokens []analysis.Token) []PostingList {

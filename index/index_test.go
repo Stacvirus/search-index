@@ -111,6 +111,21 @@ func TestAddDocument_Postings(t *testing.T) {
 			t.Errorf("missing term search")
 		}
 	})
+
+	t.Run("positions continue across lines", func(t *testing.T) {
+		idx := NewIndex()
+		path := makeTempFile(t, "the golang\nand search")
+
+		_ = idx.AddDocument(path)
+
+		if got := idx.Postings["golang"][0].Positions[0]; got != 1 {
+			t.Errorf("expected golang at position 1, got %d", got)
+		}
+
+		if got := idx.Postings["search"][0].Positions[0]; got != 3 {
+			t.Errorf("expected search at position 3, got %d", got)
+		}
+	})
 }
 
 func TestAddDocument_MultipleDocs(t *testing.T) {
@@ -168,8 +183,8 @@ func TestSearch(t *testing.T) {
 			t.Fatalf("expected 1 result, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected docID 1, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected docID 1, got %d", results[0].Doc.ID)
 		}
 	})
 
@@ -185,8 +200,8 @@ func TestSearch(t *testing.T) {
 			t.Fatalf("expected 1 result, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected docID 1, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected docID 1, got %d", results[0].Doc.ID)
 		}
 	})
 
@@ -213,6 +228,60 @@ func TestSearch(t *testing.T) {
 
 		if len(results) != 0 {
 			t.Errorf("expected empty result, got %v", results)
+		}
+	})
+
+	t.Run("snippets include match ranges", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "first line\nthis line mentions golang\nlast line")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("golang")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+
+		want := "this line mentions golang"
+		if len(results[0].Snippets) != 1 || results[0].Snippets[0].Text != want {
+			t.Fatalf("expected snippet %q, got %v", want, results[0].Snippets)
+		}
+
+		matches := results[0].Snippets[0].Matches
+		if len(matches) != 1 {
+			t.Fatalf("expected 1 match, got %v", matches)
+		}
+
+		match := matches[0]
+		if got := results[0].Snippets[0].Text[match.Start:match.End]; got != "golang" {
+			t.Fatalf("expected match to select golang, got %q", got)
+		}
+	})
+
+	t.Run("snippets highlight each query term", func(t *testing.T) {
+		idx := NewIndex()
+
+		path := makeTempFile(t, "a search engine runs on a distributed computing system")
+		_ = idx.AddDocument(path)
+
+		results := idx.Search("distributed computing")
+
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(results))
+		}
+
+		matches := results[0].Snippets[0].Matches
+		if len(matches) != 2 {
+			t.Fatalf("expected 2 matches, got %v", matches)
+		}
+
+		text := results[0].Snippets[0].Text
+		if got := text[matches[0].Start:matches[0].End]; got != "distributed" {
+			t.Fatalf("expected first match to select distributed, got %q", got)
+		}
+		if got := text[matches[1].Start:matches[1].End]; got != "computing" {
+			t.Fatalf("expected second match to select computing, got %q", got)
 		}
 	})
 }

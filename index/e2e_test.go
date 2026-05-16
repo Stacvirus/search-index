@@ -45,8 +45,8 @@ func TestEndToEndSearch(t *testing.T) {
 			t.Fatalf("expected 1 result, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected doc 1, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected doc 1, got %d", results[0].Doc.ID)
 		}
 	})
 
@@ -67,8 +67,8 @@ func TestEndToEndSearch(t *testing.T) {
 			t.Fatalf("expected 2 results, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected doc 1 ranked first, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected doc 1 ranked first, got %d", results[0].Doc.ID)
 		}
 	})
 
@@ -87,8 +87,8 @@ func TestEndToEndSearch(t *testing.T) {
 			t.Fatalf("expected 2 results, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected doc 1, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected doc 1, got %d", results[0].Doc.ID)
 		}
 	})
 
@@ -200,8 +200,8 @@ func TestEndToEndSearch(t *testing.T) {
 			t.Fatalf("expected 2 results, got %d", len(results))
 		}
 
-		if results[0].ID != 1 {
-			t.Errorf("expected higher TF doc first, got %d", results[0].ID)
+		if results[0].Doc.ID != 1 {
+			t.Errorf("expected higher TF doc first, got %d", results[0].Doc.ID)
 		}
 	})
 
