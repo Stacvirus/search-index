@@ -13,38 +13,25 @@ returns snippets with exact highlight ranges for the matching query terms.
                     +--------+---------+
                              |
               +--------------+--------------+
-              |                  |                  |
-        go run main.go add  go run main.go remove  go run main.go search
-              |                  |                  |
-              v                  v                  v
-   +----------------------+ +------------------+ +----------------------+
-   | Indexing Pipeline    | | Remove Pipeline  | | Search Pipeline      |
-   | index.AddDocument(s) | | RemoveDocument   | | index.Search         |
-   +----------+-----------+ +---------+--------+ +----------+-----------+
-              |                     |                     |
-              v                     v                     v
-   +----------------------+ +------------------+ +----------------------+
-   | Text Analysis        | | Clean Docs map   | | Query Analysis       |
-   | tokenize/lowercase/  | | Clean postings   | | same analysis path   |
-   | remove stop words    | | Delete empties   | +----------+-----------+
-   +----------+-----------+ +---------+--------+            |
-              |                     |                     v
-              v                     v          +----------------------+
-   +----------------------+ +------------------+ | Posting Lookup       |
-   | Inverted Index       | | TotalDocs--      | | term -> postings     |
-   | term -> postings     | | NextDocID stable | +----------+-----------+
-   +----------+-----------+ +---------+--------+            |
-              |                     |                     v
-              v                     v          +----------------------+
-   +----------------------+ +------------------+ | Ranking + Snippets   |
-   | search.idx           | | search.idx       | | TF-IDF + highlights  |
-   | gob persistence      | | gob persistence  | +----------+-----------+
-   +----------------------+ +------------------+            |
-                                                           v
-                                                +----------------------+
-                                                | []Result             |
-                                                | doc/score/snippets   |
-                                                +----------------------+
+        add <path>         remove <path>           list              search <query>
+            |                   |                   |                      |
+            v                   v                   v                      v
+   +----------------+   +----------------+   +----------------+   +----------------+
+   | Indexing       |   | Remove         |   | List           |   | Search         |
+   | AddDocument(s) |   | RemoveDocument |   | ListDocuments  |   | Search         |
+   +-------+--------+   +-------+--------+   +-------+--------+   +-------+--------+
+           |                    |                    |                    |
+           v                    v                    v                    v
+   +----------------+   +----------------+   +----------------+   +----------------+
+   | Text Analysis  |   | Clean Docs map |   | Sort doc IDs   |   | Query Analysis |
+   | Build postings |   | Clean postings |   | Print docs     |   | Lookup terms   |
+   +-------+--------+   +-------+--------+   +----------------+   +-------+--------+
+           |                    |                                         |
+           v                    v                                         v
+   +----------------+   +----------------+                       +----------------+
+   | TotalDocs++    |   | TotalDocs--    |                       | Rank + Snippet |
+   | Save search.idx|   | Save search.idx|                       | []Result       |
+   +----------------+   +----------------+                       +----------------+
 ```
 
 The project is intentionally simple: no database, no background workers, and no
@@ -235,6 +222,27 @@ save to search.idx
 `NextDocID` stays unchanged after removal. That keeps document IDs append-only,
 while `TotalDocs` keeps ranking correct for the documents still in the index.
 
+## List Flow
+
+List reads from the `Docs` map and prints the indexed files. Go map iteration is
+randomized, so `ListDocuments` sorts document IDs before returning anything.
+
+```text
+idx.Docs map
+   |
+   v
+collect doc IDs into []int
+   |
+   v
+sort IDs ascending
+   |
+   v
+append docs in sorted ID order
+   |
+   v
+print ID, file path, token count
+```
+
 ## Snippets and Highlighting
 
 Search returns structured results:
@@ -344,6 +352,12 @@ Remove one indexed file:
 go run main.go remove ../data/web-crawler.txt
 ```
 
+List indexed files:
+
+```sh
+go run main.go list
+```
+
 Search:
 
 ```sh
@@ -353,6 +367,11 @@ go run main.go search "distributed computing"
 Example output:
 
 ```text
+3 documents indexed:
+  1. ../information-retrieval (2834 tokens)
+  2. ../search-engines (1598 tokens)
+  3. ../web-crawler (3797 tokens)
+
 Results for "distributed computing":
  1. ../data/search-engines.txt (score: 0.0005)
     ...its engine is part of a distributed computing system that can encompass...

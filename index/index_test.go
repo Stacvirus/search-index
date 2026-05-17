@@ -273,6 +273,26 @@ func TestLoad_BackfillsTotalDocs(t *testing.T) {
 	}
 }
 
+func TestListDocuments(t *testing.T) {
+	idx := NewIndex()
+	idx.Docs[3] = Document{ID: 3, FilePath: "../web-crawler", Length: 3797}
+	idx.Docs[1] = Document{ID: 1, FilePath: "../information-retrieval", Length: 2834}
+	idx.Docs[2] = Document{ID: 2, FilePath: "../search-engines", Length: 1598}
+
+	documents := idx.ListDocuments()
+
+	if len(documents) != 3 {
+		t.Fatalf("expected 3 documents, got %d", len(documents))
+	}
+
+	for i, doc := range documents {
+		wantID := i + 1
+		if doc.ID != wantID {
+			t.Fatalf("expected doc ID %d at index %d, got %d", wantID, i, doc.ID)
+		}
+	}
+}
+
 func TestSearch(t *testing.T) {
 
 	t.Run("single term query", func(t *testing.T) {

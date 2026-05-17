@@ -178,6 +178,21 @@ func (idx *Index) findDocIDByPath(filePath string) (int, bool) {
 	return 0, false
 }
 
+// ListDocuments returns indexed documents sorted by document ID.
+func (idx *Index) ListDocuments() []Document {
+	docIDs := make([]int, 0, len(idx.Docs))
+	for docID := range idx.Docs {
+		docIDs = append(docIDs, docID)
+	}
+	sort.Ints(docIDs)
+
+	documents := make([]Document, 0, len(docIDs))
+	for _, docID := range docIDs {
+		documents = append(documents, idx.Docs[docID])
+	}
+	return documents
+}
+
 // Update the index with the tokens from the document
 func (idx *Index) buildIndex(tokens []analysis.Token, docID int) {
 	for _, token := range tokens {

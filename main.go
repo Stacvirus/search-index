@@ -10,26 +10,45 @@ import (
 const indexPath = "search.idx"
 
 func main() {
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
 	}
 
 	command := os.Args[1]
-	arg := os.Args[2]
 
 	switch command {
 	case "add":
+		arg, ok := commandArg()
+		if !ok {
+			printUsage()
+			os.Exit(1)
+		}
 		if err := addPath(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 	case "remove":
+		arg, ok := commandArg()
+		if !ok {
+			printUsage()
+			os.Exit(1)
+		}
 		if err := removePath(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+	case "list":
+		if err := listDocuments(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 	case "search":
+		arg, ok := commandArg()
+		if !ok {
+			printUsage()
+			os.Exit(1)
+		}
 		if err := search(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
@@ -39,6 +58,13 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+func commandArg() (string, bool) {
+	if len(os.Args) < 3 {
+		return "", false
+	}
+	return os.Args[2], true
 }
 
 func addPath(path string) error {
@@ -87,6 +113,20 @@ func removePath(path string) error {
 	return nil
 }
 
+func listDocuments() error {
+	idx, err := index.Load(indexPath)
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
+
+	documents := idx.ListDocuments()
+	fmt.Printf("%d documents indexed:\n", len(documents))
+	for _, doc := range documents {
+		fmt.Printf("  %d. %s (%d tokens)\n", doc.ID, doc.FilePath, doc.Length)
+	}
+	return nil
+}
+
 func search(query string) error {
 	idx, err := index.Load(indexPath)
 	if err != nil {
@@ -115,5 +155,6 @@ func printUsage() {
 	fmt.Println(" go run main.go add <filepath.extension>")
 	fmt.Println(" go run main.go add <directory>")
 	fmt.Println(" go run main.go remove <filepath.extension>")
+	fmt.Println(" go run main.go list")
 	fmt.Println(" go run main.go search <query>")
 }
