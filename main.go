@@ -24,6 +24,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+	case "remove":
+		if err := removePath(arg); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 	case "search":
 		if err := search(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -64,6 +69,24 @@ func addPath(path string) error {
 	return idx.Save(indexPath)
 }
 
+func removePath(path string) error {
+	idx, err := index.Load(indexPath)
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
+
+	if err := idx.RemoveDocument(path); err != nil {
+		return err
+	}
+
+	if err := idx.Save(indexPath); err != nil {
+		return err
+	}
+
+	fmt.Printf("removed: %s\n", path)
+	return nil
+}
+
 func search(query string) error {
 	idx, err := index.Load(indexPath)
 	if err != nil {
@@ -91,5 +114,6 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println(" go run main.go add <filepath.extension>")
 	fmt.Println(" go run main.go add <directory>")
+	fmt.Println(" go run main.go remove <filepath.extension>")
 	fmt.Println(" go run main.go search <query>")
 }

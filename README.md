@@ -13,38 +13,38 @@ returns snippets with exact highlight ranges for the matching query terms.
                     +--------+---------+
                              |
               +--------------+--------------+
-              |                             |
-        go run main.go add            go run main.go search
-              |                             |
-              v                             v
-   +----------------------+        +----------------------+
-   | Indexing Pipeline    |        | Search Pipeline      |
-   | index.AddDocument(s) |        | index.Search         |
-   +----------+-----------+        +----------+-----------+
-              |                             |
-              v                             v
-   +----------------------+        +----------------------+
-   | Text Analysis        |        | Query Analysis       |
-   | tokenize/lowercase/  |        | same analysis path   |
-   | remove stop words    |        +----------+-----------+
-   +----------+-----------+                   |
-              |                               v
-              v                    +----------------------+
-   +----------------------+        | Posting Lookup       |
-   | Inverted Index       |<-------+ term -> postings     |
-   | term -> postings     |        +----------+-----------+
-   +----------+-----------+                   |
-              |                               v
-              v                    +----------------------+
-   +----------------------+        | Ranking + Snippets   |
-   | search.idx           |        | TF-IDF + highlights  |
-   | gob persistence      |        +----------+-----------+
-   +----------------------+                   |
-                                             v
-                                  +----------------------+
-                                  | []Result             |
-                                  | doc/score/snippets   |
-                                  +----------------------+
+              |                  |                  |
+        go run main.go add  go run main.go remove  go run main.go search
+              |                  |                  |
+              v                  v                  v
+   +----------------------+ +------------------+ +----------------------+
+   | Indexing Pipeline    | | Remove Pipeline  | | Search Pipeline      |
+   | index.AddDocument(s) | | RemoveDocument   | | index.Search         |
+   +----------+-----------+ +---------+--------+ +----------+-----------+
+              |                     |                     |
+              v                     v                     v
+   +----------------------+ +------------------+ +----------------------+
+   | Text Analysis        | | Clean Docs map   | | Query Analysis       |
+   | tokenize/lowercase/  | | Clean postings   | | same analysis path   |
+   | remove stop words    | | Delete empties   | +----------+-----------+
+   +----------+-----------+ +---------+--------+            |
+              |                     |                     v
+              v                     v          +----------------------+
+   +----------------------+ +------------------+ | Posting Lookup       |
+   | Inverted Index       | | TotalDocs--      | | term -> postings     |
+   | term -> postings     | | NextDocID stable | +----------+-----------+
+   +----------+-----------+ +---------+--------+            |
+              |                     |                     v
+              v                     v          +----------------------+
+   +----------------------+ +------------------+ | Ranking + Snippets   |
+   | search.idx           | | search.idx       | | TF-IDF + highlights  |
+   | gob persistence      | | gob persistence  | +----------+-----------+
+   +----------------------+ +------------------+            |
+                                                           v
+                                                +----------------------+
+                                                | []Result             |
+                                                | doc/score/snippets   |
+                                                +----------------------+
 ```
 
 The project is intentionally simple: no database, no background workers, and no
@@ -67,6 +67,22 @@ type Document struct {
 
 `Length` is the number of analyzed, non-stop-word tokens. It is used for term
 frequency scoring.
+
+### Index
+
+`Index` is the top-level in-memory data structure.
+
+```go
+type Index struct {
+	Postings  map[string]PostingList
+	Docs      map[int]Document
+	NextDocID int
+	TotalDocs int
+}
+```
+
+`NextDocID` is append-only and never decrements. `TotalDocs` tracks the current
+number of indexed documents and is used by IDF scoring.
 
 ### Posting
 
@@ -187,6 +203,38 @@ idf = log(total documents / documents containing term)
 For multi-term queries, the document score is the sum of the score for each
 query term.
 
+## Remove Flow
+
+Removing a document has to clean up three pieces of state.
+
+```text
+file path
+   |
+   v
+find matching Document.FilePath
+   |
+   v
+delete idx.Docs[docID]
+   |
+   v
+for every term in idx.Postings
+   |
+   v
+remove postings where Posting.DocID == docID
+   |
+   v
+delete term if its PostingList is now empty
+   |
+   v
+TotalDocs--
+   |
+   v
+save to search.idx
+```
+
+`NextDocID` stays unchanged after removal. That keeps document IDs append-only,
+while `TotalDocs` keeps ranking correct for the documents still in the index.
+
 ## Snippets and Highlighting
 
 Search returns structured results:
@@ -290,6 +338,12 @@ Index a directory of `.txt` and `.md` files:
 go run main.go add ../data
 ```
 
+Remove one indexed file:
+
+```sh
+go run main.go remove ../data/web-crawler.txt
+```
+
 Search:
 
 ```sh
@@ -314,7 +368,7 @@ Results for "distributed computing":
 │   ├── normalizer.go   # Lowercases tokens
 │   └── stopwords.go    # Removes low-value terms without changing positions
 ├── index/
-│   ├── index.go        # Index structure, add documents, search, ranking flow
+│   ├── index.go        # Index structure, add/remove documents, search, ranking
 │   ├── posting.go      # Posting and PostingList types
 │   ├── scorer.go       # TF-IDF scoring
 │   ├── snippet.go      # Snippet extraction and highlight ranges
@@ -326,6 +380,8 @@ Results for "distributed computing":
 ## Current Limitations
 
 - Query matching uses union/OR behavior, not phrase matching.
+- Remove finds documents by exact file path, so use the same path style you used
+  when adding the document.
 - Snippet highlighting marks each query term independently.
 - Tokenization is ASCII-oriented: letters and numbers are token characters.
 - The index is loaded and saved as one file, so it is best for learning and

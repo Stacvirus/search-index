@@ -2,6 +2,7 @@ package index
 
 import (
 	"bufio"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ type Index struct {
 	Postings  map[string]PostingList
 	Docs      map[int]Document
 	NextDocID int
+	TotalDocs int
 }
 
 // Document is the metadata stored for one indexed file.
@@ -55,6 +57,7 @@ func NewIndex() *Index {
 		Postings:  make(map[string]PostingList),
 		Docs:      make(map[int]Document),
 		NextDocID: 1,
+		TotalDocs: 0,
 	}
 }
 
@@ -129,8 +132,50 @@ func (idx *Index) AddDocument(filePath string) error {
 		Length:   totalTokens,
 	}
 	idx.NextDocID++
+	idx.TotalDocs++
 
 	return nil
+}
+
+// RemoveDocument removes one indexed file and all of its postings.
+// It keeps NextDocID append-only, but decrements TotalDocs so ranking uses the
+// current number of indexed documents.
+func (idx *Index) RemoveDocument(filePath string) error {
+	docID, ok := idx.findDocIDByPath(filePath)
+	if !ok {
+		return fmt.Errorf("document not indexed: %s", filePath)
+	}
+
+	delete(idx.Docs, docID)
+
+	for term, list := range idx.Postings {
+		filtered := list[:0]
+		for _, posting := range list {
+			if posting.DocID != docID {
+				filtered = append(filtered, posting)
+			}
+		}
+
+		if len(filtered) == 0 {
+			delete(idx.Postings, term)
+			continue
+		}
+		idx.Postings[term] = filtered
+	}
+
+	if idx.TotalDocs > 0 {
+		idx.TotalDocs--
+	}
+	return nil
+}
+
+func (idx *Index) findDocIDByPath(filePath string) (int, bool) {
+	for docID, doc := range idx.Docs {
+		if doc.FilePath == filePath {
+			return docID, true
+		}
+	}
+	return 0, false
 }
 
 // Update the index with the tokens from the document
@@ -226,7 +271,7 @@ func (idx *Index) rankDocuments(postings PostingList, tokens []analysis.Token) [
 		totalScore := 0.0
 		for _, token := range tokens {
 			list := idx.Postings[token.Word]
-			totalScore += Score(searchPosting(list, posting.DocID), doc, len(list), idx.NextDocID-1)
+			totalScore += Score(searchPosting(list, posting.DocID), doc, len(list), idx.TotalDocs)
 		}
 		scoredList = append(scoredList, scoredDocs{doc, totalScore})
 	}

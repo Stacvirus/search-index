@@ -167,6 +167,110 @@ func TestAddDocument_DocStore(t *testing.T) {
 	if idx.NextDocID != 2 {
 		t.Errorf("expected nextDocID 2, got %d", idx.NextDocID)
 	}
+
+	if idx.TotalDocs != 1 {
+		t.Errorf("expected totalDocs 1, got %d", idx.TotalDocs)
+	}
+}
+
+func TestRemoveDocument(t *testing.T) {
+	t.Run("removes doc, postings, and unique terms", func(t *testing.T) {
+		idx := NewIndex()
+
+		path1 := makeTempFile(t, "golang fast")
+		path2 := makeTempFile(t, "python slow")
+		_ = idx.AddDocument(path1)
+		_ = idx.AddDocument(path2)
+
+		err := idx.RemoveDocument(path1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if _, ok := idx.Docs[1]; ok {
+			t.Fatalf("expected doc 1 to be removed")
+		}
+
+		if idx.TotalDocs != 1 {
+			t.Fatalf("expected TotalDocs 1, got %d", idx.TotalDocs)
+		}
+
+		if idx.NextDocID != 3 {
+			t.Fatalf("expected NextDocID to remain 3, got %d", idx.NextDocID)
+		}
+
+		if _, ok := idx.Postings["golang"]; ok {
+			t.Fatalf("expected unique term golang to be removed")
+		}
+
+		results := idx.Search("golang python")
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result after removal, got %d", len(results))
+		}
+
+		if results[0].Doc.FilePath != path2 {
+			t.Fatalf("expected remaining result %s, got %s", path2, results[0].Doc.FilePath)
+		}
+	})
+
+	t.Run("removes only target doc from shared posting lists", func(t *testing.T) {
+		idx := NewIndex()
+
+		path1 := makeTempFile(t, "golang fast")
+		path2 := makeTempFile(t, "golang slow")
+		_ = idx.AddDocument(path1)
+		_ = idx.AddDocument(path2)
+
+		err := idx.RemoveDocument(path1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		postings := idx.Postings["golang"]
+		if len(postings) != 1 {
+			t.Fatalf("expected 1 golang posting, got %d", len(postings))
+		}
+
+		if postings[0].DocID != 2 {
+			t.Fatalf("expected remaining posting for doc 2, got doc %d", postings[0].DocID)
+		}
+
+		results := idx.Search("golang")
+		if len(results) != 1 || results[0].Doc.ID != 2 {
+			t.Fatalf("expected only doc 2 in search results, got %v", results)
+		}
+	})
+
+	t.Run("returns error when path is not indexed", func(t *testing.T) {
+		idx := NewIndex()
+
+		err := idx.RemoveDocument("missing.txt")
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+	})
+}
+
+func TestLoad_BackfillsTotalDocs(t *testing.T) {
+	path := makeTempFile(t, "")
+	idx := NewIndex()
+
+	docPath := makeTempFile(t, "golang")
+	_ = idx.AddDocument(docPath)
+	idx.TotalDocs = 0
+
+	if err := idx.Save(path); err != nil {
+		t.Fatalf("unexpected save error: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected load error: %v", err)
+	}
+
+	if loaded.TotalDocs != 1 {
+		t.Fatalf("expected TotalDocs 1, got %d", loaded.TotalDocs)
+	}
 }
 
 func TestSearch(t *testing.T) {
@@ -436,6 +540,10 @@ func TestAddDocuments(t *testing.T) {
 
 			if len(idx.Docs) != tt.wantDocs {
 				t.Errorf("expected %d docs, got %d", tt.wantDocs, len(idx.Docs))
+			}
+
+			if idx.TotalDocs != tt.wantDocs {
+				t.Errorf("expected TotalDocs %d, got %d", tt.wantDocs, idx.TotalDocs)
 			}
 
 			if tt.wantPostings && len(idx.Postings) == 0 {

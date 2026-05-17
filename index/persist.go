@@ -33,5 +33,8 @@ func Load(path string) (*Index, error) {
 	if err := gob.NewDecoder(file).Decode(idx); err != nil {
 		return nil, err
 	}
+	if idx.TotalDocs == 0 && len(idx.Docs) > 0 {
+		idx.TotalDocs = len(idx.Docs)
+	}
 	return idx, nil
 }

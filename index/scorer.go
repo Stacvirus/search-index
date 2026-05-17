@@ -4,7 +4,7 @@ import "math"
 
 // Score calculates the relevance score of a document for a given posting using TF-IDF.
 func Score(posting Posting, doc Document, docListLen int, totalDocs int) float64 {
-	if doc.Length == 0 || docListLen == 0 {
+	if doc.Length == 0 || docListLen == 0 || totalDocs == 0 {
 		return 0.0
 	}
 	tf := termFrequency(posting, doc)
